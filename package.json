@@ -33,6 +33,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepackOnly": "npm run build",
     "check": "tsc -p tsconfig.json --noEmit",
     "acquire:dependencies": "bash ./build/acquire-dependencies.sh",
     "fetch:sysroot": "bash ./build/fetch-sysroot.sh",
