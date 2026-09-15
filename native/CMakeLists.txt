@@ -9,6 +9,8 @@ set_target_properties(clangd_wasm_system_index_builder PROPERTIES
 )
 target_compile_features(clangd_wasm_system_index_builder PRIVATE cxx_std_17)
 target_include_directories(clangd_wasm_system_index_builder PRIVATE
+  "${LLVM_MAIN_SRC_DIR}/../clang/include"
+  "${LLVM_BINARY_DIR}/tools/clang/include"
   "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra"
   "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra/clangd"
 )
@@ -27,6 +29,8 @@ set_target_properties(clangd-wasm-runtime PROPERTIES
 target_compile_features(clangd-wasm-runtime PRIVATE cxx_std_17)
 target_include_directories(clangd-wasm-runtime PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
+  "${LLVM_MAIN_SRC_DIR}/../clang/include"
+  "${LLVM_BINARY_DIR}/tools/clang/include"
   "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra"
   "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra/clangd"
 )
