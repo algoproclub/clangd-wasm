@@ -88,7 +88,7 @@ private:
           "  'use-external-names': 'false',\n"
           "  'roots': [\n"
           "    {\n"
-          "      'type': 'directory',\n"
+          "      'type': 'directory-remap',\n"
           "      'name': \"/sysroot\",\n"
           "      'external-contents': \""
        << llvm::yaml::escape(PhysicalRoot) << "\"\n"
