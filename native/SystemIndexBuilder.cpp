@@ -211,10 +211,10 @@ std::vector<std::string> compilerArguments(const Options &Opt) {
   addExistingPath(Result, CommonTarget, VirtualCommonTarget);
   llvm::SmallString<256> Cross(Root);
   llvm::SmallString<256> VirtualCross(VirtualRoot);
-  llvm::sys::path::append(Cross, "usr", Opt.Target, "include", "c++",
-                          Opt.GCCVersion);
-  llvm::sys::path::append(VirtualCross, "usr", Opt.Target, "include", "c++",
-                          Opt.GCCVersion);
+  llvm::sys::path::append(Cross, "usr", Opt.Target, "include", "c++");
+  llvm::sys::path::append(Cross, Opt.GCCVersion);
+  llvm::sys::path::append(VirtualCross, "usr", Opt.Target, "include", "c++");
+  llvm::sys::path::append(VirtualCross, Opt.GCCVersion);
   addExistingPath(Result, Cross, VirtualCross);
   llvm::SmallString<256> CrossTarget(Cross);
   llvm::SmallString<256> VirtualCrossTarget(VirtualCross);
@@ -233,10 +233,10 @@ std::vector<std::string> compilerArguments(const Options &Opt) {
   addExistingPath(Result, Includes, VirtualIncludes);
   llvm::SmallString<256> GCCIncludes(Root);
   llvm::SmallString<256> VirtualGCCIncludes(VirtualRoot);
-  llvm::sys::path::append(GCCIncludes, "usr", "lib", "gcc", Opt.Target,
-                          Opt.GCCVersion, "include");
-  llvm::sys::path::append(VirtualGCCIncludes, "usr", "lib", "gcc", Opt.Target,
-                          Opt.GCCVersion, "include");
+  llvm::sys::path::append(GCCIncludes, "usr", "lib", "gcc", Opt.Target);
+  llvm::sys::path::append(GCCIncludes, Opt.GCCVersion, "include");
+  llvm::sys::path::append(VirtualGCCIncludes, "usr", "lib", "gcc", Opt.Target);
+  llvm::sys::path::append(VirtualGCCIncludes, Opt.GCCVersion, "include");
   addExistingPath(Result, GCCIncludes, VirtualGCCIncludes);
   return Result;
 }
