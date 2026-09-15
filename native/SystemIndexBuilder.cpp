@@ -245,7 +245,9 @@ std::unique_ptr<CompilerInvocation>
 makeInvocation(const Options &Opt, const clang::clangd::ThreadsafeFS &Filesystem,
                DiagnosticConsumer &Diagnostics) {
   constexpr llvm::StringLiteral MainFile = "/clangd-wasm-system-index.cc";
-  ParseInputs Inputs{CompileCommand("/", MainFile, compilerArguments(Opt), ""),
+  std::vector<std::string> Arguments = compilerArguments(Opt);
+  Arguments.push_back(MainFile.str());
+  ParseInputs Inputs{CompileCommand("/", MainFile, std::move(Arguments), ""),
                      &Filesystem, ""};
   auto Invocation = clang::clangd::buildCompilerInvocation(Inputs, Diagnostics);
   if (!Invocation || Invocation->getFrontendOpts().Inputs.size() != 1)
