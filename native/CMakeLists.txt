@@ -8,6 +8,7 @@ set_target_properties(clangd_wasm_system_index_builder PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${LLVM_RUNTIME_OUTPUT_INTDIR}"
 )
 target_compile_features(clangd_wasm_system_index_builder PRIVATE cxx_std_17)
+llvm_update_compile_flags(clangd_wasm_system_index_builder)
 target_include_directories(clangd_wasm_system_index_builder PRIVATE
   "${LLVM_MAIN_SRC_DIR}/../clang/include"
   "${LLVM_BINARY_DIR}/tools/clang/include"
@@ -28,6 +29,7 @@ set_target_properties(clangd-wasm-runtime PROPERTIES
   RUNTIME_OUTPUT_DIRECTORY "${LLVM_RUNTIME_OUTPUT_INTDIR}"
 )
 target_compile_features(clangd-wasm-runtime PRIVATE cxx_std_17)
+llvm_update_compile_flags(clangd-wasm-runtime)
 target_include_directories(clangd-wasm-runtime PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}"
   "${LLVM_MAIN_SRC_DIR}/../clang/include"

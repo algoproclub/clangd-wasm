@@ -43,9 +43,11 @@ llvm::json::Object encodeError(llvm::Error Error) {
   std::string Message;
   clang::clangd::ErrorCode Code = clang::clangd::ErrorCode::UnknownErrorCode;
   if (llvm::Error Unhandled = llvm::handleErrors(
-          std::move(Error), [&](const clang::clangd::LSPError &L) {
+          std::move(Error),
+          [&](const clang::clangd::LSPError &L) -> llvm::Error {
             Message = L.Message;
             Code = L.Code;
+            return llvm::Error::success();
           }))
     Message = llvm::toString(std::move(Unhandled));
   return llvm::json::Object{{"message", std::move(Message)},
