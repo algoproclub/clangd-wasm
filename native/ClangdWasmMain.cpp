@@ -30,7 +30,7 @@ std::unique_ptr<clang::clangd::SymbolIndex> loadSystemIndex() {
 }
 
 clang::clangd::ClangdLSPServer::Options makeOptions(
-    const clang::clangd::SymbolIndex *SystemIndex) {
+    clang::clangd::SymbolIndex *SystemIndex) {
   clang::clangd::ClangdLSPServer::Options Options;
   Options.AsyncThreadsCount = 0;
   Options.BuildDynamicSymbolIndex = false;
