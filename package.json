@@ -34,8 +34,12 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
+    "acquire:dependencies": "bash ./build/acquire-dependencies.sh",
+    "fetch:sysroot": "bash ./build/fetch-sysroot.sh",
     "build:engine": "bash ./build/build-engine.sh",
     "build:index": "bash ./build/build-system-index.sh",
+    "capture:sysroot": "bash ./build/capture-sysroot.sh",
+    "build:artifacts": "npm run build:engine && npm run build:index && npm run verify:assets",
     "verify:assets": "node ./build/verify-assets.mjs",
     "pack:check": "npm run build && npm run verify:assets && npm pack --dry-run"
   },
