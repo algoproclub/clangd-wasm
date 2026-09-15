@@ -13,6 +13,7 @@ target_include_directories(clangd_wasm_system_index_builder PRIVATE
   "${LLVM_BINARY_DIR}/tools/clang/include"
   "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra"
   "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra/clangd"
+  "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra/include-cleaner/include"
 )
 # clangDaemon owns the clangd compiler-invocation and index APIs. This target
 # pins the helper to the exact revision used for the browser engine.
@@ -33,6 +34,7 @@ target_include_directories(clangd-wasm-runtime PRIVATE
   "${LLVM_BINARY_DIR}/tools/clang/include"
   "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra"
   "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra/clangd"
+  "${LLVM_MAIN_SRC_DIR}/../clang-tools-extra/include-cleaner/include"
 )
 target_link_libraries(clangd-wasm-runtime PRIVATE clangDaemon)
 

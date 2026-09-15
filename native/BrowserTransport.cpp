@@ -19,7 +19,7 @@
 // from receive means the wrapper has closed the queue.
 EM_JS(void, browser_transport_send, (const char *JSON), {
   globalThis.__algoproClangdPostMessage(UTF8ToString(JSON));
-});
+})
 EM_ASYNC_JS(char *, browser_transport_receive, (), {
   const message = await globalThis.__algoproClangdReceiveMessage();
   if (message === null)
@@ -30,10 +30,10 @@ EM_ASYNC_JS(char *, browser_transport_receive, (), {
   const pointer = _malloc(bytes);
   stringToUTF8(message, pointer, bytes);
   return pointer;
-});
+})
 EM_JS(void, browser_transport_wake, (), {
   globalThis.__algoproClangdWakeMessageLoop();
-});
+})
 #endif
 
 namespace algopro::clangd_wasm {
@@ -46,10 +46,10 @@ llvm::json::Object encodeError(llvm::Error Error) {
           std::move(Error), [&](const clang::clangd::LSPError &L) {
             Message = L.Message;
             Code = L.Code;
-            return llvm::Error::success();
           }))
     Message = llvm::toString(std::move(Unhandled));
-  return {{"message", std::move(Message)}, {"code", int64_t(Code)}};
+  return llvm::json::Object{{"message", std::move(Message)},
+                            {"code", int64_t(Code)}};
 }
 
 llvm::Error decodeError(const llvm::json::Object &Object) {
