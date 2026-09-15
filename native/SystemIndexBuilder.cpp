@@ -19,6 +19,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/Path.h"
 #include "llvm/Support/VirtualFileSystem.h"
+#include "llvm/Support/YAMLParser.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cctype>
@@ -77,12 +78,23 @@ public:
 
 private:
   llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> viewImpl() const override {
-    llvm::vfs::YAMLVFSWriter Writer;
-    Writer.setUseExternalNames(false);
-    Writer.addDirectoryMapping(CanonicalSysroot, PhysicalRoot);
     std::string YAML;
     llvm::raw_string_ostream OS(YAML);
-    Writer.write(OS);
+    // YAMLVFSWriter expands directory mappings into virtual directories and
+    // loses their external target. A RedirectingFileSystem directory remap is
+    // what allows /sysroot/usr/... to resolve into the captured tree.
+    OS << "{\n"
+          "  'version': 0,\n"
+          "  'use-external-names': 'false',\n"
+          "  'roots': [\n"
+          "    {\n"
+          "      'type': 'directory',\n"
+          "      'name': \"/sysroot\",\n"
+          "      'external-contents': \""
+       << llvm::yaml::escape(PhysicalRoot) << "\"\n"
+          "    }\n"
+          "  ]\n"
+          "}\n";
     OS.flush();
     auto Filesystem = llvm::vfs::getVFSFromYAML(
         llvm::MemoryBuffer::getMemBufferCopy(YAML, "clangd-wasm-sysroot.yaml"),
