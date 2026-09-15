@@ -46,6 +46,7 @@ constexpr llvm::StringLiteral CanonicalSysroot = "/sysroot";
 
 struct Options {
   std::string Target, Sysroot, GCCVersion, Output, Allowlist, ResourceDir;
+  std::vector<std::string> IncludeDirectories;
 };
 
 class ErrorDiagnostics final : public DiagnosticConsumer {
@@ -97,7 +98,8 @@ private:
 void usage() {
   llvm::errs() << "usage: SystemIndexBuilder --target=TRIPLE --sysroot=DIR "
                   "--gcc-version=VERSION --output=FILE "
-                  "--public-header-allowlist=FILE [--resource-dir=DIR]\n";
+                  "--public-header-allowlist=FILE --include-dir=DIR "
+                  "[--include-dir=DIR ...] [--resource-dir=DIR]\n";
 }
 
 std::optional<std::string> optionValue(llvm::StringRef Argument,
@@ -128,15 +130,21 @@ Options parseOptions(int Count, char **Arguments) {
       Result.Allowlist = *Value;
     else if (auto Value = optionValue(Argument, "resource-dir"))
       Result.ResourceDir = *Value;
+    else if (auto Value = optionValue(Argument, "include-dir"))
+      Result.IncludeDirectories.push_back(*Value);
     else
       fail(std::string("unknown argument: ") + Argument.str());
   }
   if (Result.Target.empty() || Result.Sysroot.empty() ||
       Result.GCCVersion.empty() || Result.Output.empty() ||
-      Result.Allowlist.empty()) {
+      Result.Allowlist.empty() || Result.IncludeDirectories.empty()) {
     usage();
     fail("all required options must be supplied");
   }
+  for (const std::string &Directory : Result.IncludeDirectories)
+    if (!llvm::StringRef(Directory).starts_with("/usr/") ||
+        llvm::StringRef(Directory).contains(".."))
+      fail(std::string("unsafe captured include directory: ") + Directory);
   return Result;
 }
 
@@ -196,48 +204,13 @@ std::vector<std::string> compilerArguments(const Options &Opt) {
   if (!Opt.ResourceDir.empty())
     Result.push_back("-resource-dir=" + canonicalPath(Opt.ResourceDir));
 
-  // A bare sysroot does not make Clang discover GCC's C++ headers. Support
-  // both Debian native and cross-sysroot layouts, preserving common-before-
-  // target-specific search order.
-  llvm::SmallString<256> Root(Opt.Sysroot), Common(Root), VirtualRoot(CanonicalSysroot),
-      VirtualCommon(VirtualRoot);
-  llvm::sys::path::append(Common, "usr", "include", "c++", Opt.GCCVersion);
-  llvm::sys::path::append(VirtualCommon, "usr", "include", "c++", Opt.GCCVersion);
-  addExistingPath(Result, Common, VirtualCommon);
-  llvm::SmallString<256> CommonTarget(Common);
-  llvm::SmallString<256> VirtualCommonTarget(VirtualCommon);
-  llvm::sys::path::append(CommonTarget, Opt.Target);
-  llvm::sys::path::append(VirtualCommonTarget, Opt.Target);
-  addExistingPath(Result, CommonTarget, VirtualCommonTarget);
-  llvm::SmallString<256> Cross(Root);
-  llvm::SmallString<256> VirtualCross(VirtualRoot);
-  llvm::sys::path::append(Cross, "usr", Opt.Target, "include", "c++");
-  llvm::sys::path::append(Cross, Opt.GCCVersion);
-  llvm::sys::path::append(VirtualCross, "usr", Opt.Target, "include", "c++");
-  llvm::sys::path::append(VirtualCross, Opt.GCCVersion);
-  addExistingPath(Result, Cross, VirtualCross);
-  llvm::SmallString<256> CrossTarget(Cross);
-  llvm::SmallString<256> VirtualCrossTarget(VirtualCross);
-  llvm::sys::path::append(CrossTarget, Opt.Target);
-  llvm::sys::path::append(VirtualCrossTarget, Opt.Target);
-  addExistingPath(Result, CrossTarget, VirtualCrossTarget);
-  llvm::SmallString<256> Multiarch(Root);
-  llvm::SmallString<256> VirtualMultiarch(VirtualRoot);
-  llvm::sys::path::append(Multiarch, "usr", "include", Opt.Target);
-  llvm::sys::path::append(VirtualMultiarch, "usr", "include", Opt.Target);
-  addExistingPath(Result, Multiarch, VirtualMultiarch);
-  llvm::SmallString<256> Includes(Root);
-  llvm::SmallString<256> VirtualIncludes(VirtualRoot);
-  llvm::sys::path::append(Includes, "usr", "include");
-  llvm::sys::path::append(VirtualIncludes, "usr", "include");
-  addExistingPath(Result, Includes, VirtualIncludes);
-  llvm::SmallString<256> GCCIncludes(Root);
-  llvm::SmallString<256> VirtualGCCIncludes(VirtualRoot);
-  llvm::sys::path::append(GCCIncludes, "usr", "lib", "gcc", Opt.Target);
-  llvm::sys::path::append(GCCIncludes, Opt.GCCVersion, "include");
-  llvm::sys::path::append(VirtualGCCIncludes, "usr", "lib", "gcc", Opt.Target);
-  llvm::sys::path::append(VirtualGCCIncludes, Opt.GCCVersion, "include");
-  addExistingPath(Result, GCCIncludes, VirtualGCCIncludes);
+  // Use the compiler's captured search order. The GCC version string alone
+  // cannot reconstruct it (for example, GCC 13.3.0 uses c++/13 on Debian).
+  for (const std::string &Directory : Opt.IncludeDirectories) {
+    const std::string Physical = Opt.Sysroot + Directory;
+    const std::string Virtual = CanonicalSysroot.str().str() + Directory;
+    addExistingPath(Result, Physical, Virtual);
+  }
   return Result;
 }
 

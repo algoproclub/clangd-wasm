@@ -41,6 +41,15 @@ builder_args=(
   --public-header-allowlist="$package_root/build/public-headers.txt"
 )
 
+toolchain_file="$(dirname "$SYSROOT_DIR")/toolchain.txt"
+test -f "$toolchain_file" || {
+  echo "Captured sysroot is missing toolchain.txt." >&2
+  exit 1
+}
+while IFS= read -r include_dir; do
+  builder_args+=(--include-dir="$include_dir")
+done < <(awk '/^includeDirectories=/{capture=1; next} /^compilerVersionOutput=/{capture=0} capture' "$toolchain_file")
+
 if [[ -n "${CLANG_RESOURCE_DIR:-}" ]]; then
   builder_args+=(--resource-dir="$CLANG_RESOURCE_DIR")
 fi
