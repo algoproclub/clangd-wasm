@@ -41,5 +41,12 @@ test -d "$sysroot/usr/include" || {
   echo "The sysroot archive does not contain sysroot/usr/include/." >&2
   exit 1
 }
-printf 'export SYSROOT_DIR=%q\n' "$sysroot" > "$package_root/build/work/sysroot.env"
+toolchain="$destination/toolchain.txt"
+captured_gcc_version=$(awk -F= '$1 == "gccVersion" { print $2; exit }' "$toolchain")
+if [[ -z "$captured_gcc_version" ]]; then
+  echo "The sysroot archive does not contain a GCC version in toolchain.txt." >&2
+  exit 1
+fi
+printf 'export SYSROOT_DIR=%q\nexport GCC_VERSION=%q\n' "$sysroot" "$captured_gcc_version" \
+  > "$package_root/build/work/sysroot.env"
 echo "Verified sysroot extracted to $sysroot"
