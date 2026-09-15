@@ -208,7 +208,7 @@ std::vector<std::string> compilerArguments(const Options &Opt) {
   // cannot reconstruct it (for example, GCC 13.3.0 uses c++/13 on Debian).
   for (const std::string &Directory : Opt.IncludeDirectories) {
     const std::string Physical = Opt.Sysroot + Directory;
-    const std::string Virtual = CanonicalSysroot.str().str() + Directory;
+    const std::string Virtual = CanonicalSysroot.str() + Directory;
     addExistingPath(Result, Physical, Virtual);
   }
   return Result;
