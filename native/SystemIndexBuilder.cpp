@@ -54,7 +54,12 @@ public:
   void HandleDiagnostic(DiagnosticsEngine::Level Level,
                         const Diagnostic &Info) override {
     DiagnosticConsumer::HandleDiagnostic(Level, Info);
-    SawError |= Level >= DiagnosticsEngine::Error;
+    if (Level < DiagnosticsEngine::Error)
+      return;
+    SawError = true;
+    llvm::SmallString<256> Message;
+    Info.FormatDiagnostic(Message);
+    llvm::errs() << "SystemIndexBuilder: " << Message << '\n';
   }
   bool sawError() const { return SawError; }
 
@@ -163,7 +168,11 @@ std::string makeUmbrella(llvm::StringRef Filename) {
   if (!Input)
     fail(std::string("cannot read allowlist: ") + Filename.str());
   std::string Line;
-  std::string Result;
+  // Match clangd's upstream stdlib umbrella: a missing <vector> must fail
+  // loudly rather than making every guarded include disappear silently.
+  std::string Result = "#if !__has_include(<vector>)\n"
+                       "#error Captured include directories cannot find <vector>\n"
+                       "#endif\n";
   while (std::getline(Input, Line)) {
     llvm::StringRef Header = llvm::StringRef(Line).trim();
     if (Header.empty() || Header.starts_with('#'))
