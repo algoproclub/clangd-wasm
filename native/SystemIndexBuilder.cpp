@@ -235,6 +235,21 @@ std::vector<std::string> compilerArguments(const Options &Opt) {
   return Result;
 }
 
+void verifyCapturedHeaderMapping(const Options &Opt,
+                                 const clang::clangd::ThreadsafeFS &Filesystem) {
+  const auto View = Filesystem.view(std::nullopt);
+  for (const std::string &Directory : Opt.IncludeDirectories) {
+    const std::string Physical = Opt.Sysroot + Directory + "/vector";
+    if (!llvm::sys::fs::is_regular_file(Physical))
+      continue;
+    const std::string Virtual = CanonicalSysroot.str() + Directory + "/vector";
+    if (!View->exists(Virtual))
+      fail(std::string("VFS cannot map captured <vector>: ") + Virtual);
+    return;
+  }
+  fail("captured include directories do not contain <vector>");
+}
+
 std::unique_ptr<CompilerInvocation>
 makeInvocation(const Options &Opt, const clang::clangd::ThreadsafeFS &Filesystem,
                DiagnosticConsumer &Diagnostics) {
@@ -296,6 +311,7 @@ int main(int Count, char **Arguments) {
 
   const std::string Umbrella = makeUmbrella(Opt.Allowlist);
   CanonicalSysrootFS Filesystem(canonicalPath(Opt.Sysroot));
+  verifyCapturedHeaderMapping(Opt, Filesystem);
   checkUmbrella(Umbrella, Opt, Filesystem);
 
   ErrorDiagnostics Diagnostics;
