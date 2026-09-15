@@ -1,0 +1,50 @@
+{
+  "name": "@algoproclub/clangd-wasm",
+  "version": "0.1.0",
+  "description": "Prebuilt browser clangd runtime and AArch64 GNU C++ headers for AlgoPro-compatible editors.",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
+    },
+    "./browser": {
+      "types": "./lib/browser.d.ts",
+      "import": "./lib/browser.js"
+    },
+    "./node": {
+      "types": "./lib/index.d.ts",
+      "import": "./lib/index.js"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/algoproclub/clangd-wasm.git"
+  },
+  "publishConfig": {
+    "access": "restricted",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "lib",
+    "assets",
+    "README.md",
+    "LICENSES"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "build:engine": "bash ./build/build-engine.sh",
+    "build:index": "bash ./build/build-system-index.sh",
+    "verify:assets": "node ./build/verify-assets.mjs",
+    "pack:check": "npm run build && npm run verify:assets && npm pack --dry-run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.3"
+  },
+  "license": "Apache-2.0 WITH LLVM-exception"
+}
