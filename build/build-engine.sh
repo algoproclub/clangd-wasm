@@ -47,8 +47,8 @@ source "$EMSDK/emsdk_env.sh" >/dev/null
   -DLLVM_INCLUDE_DOCS=OFF
 cmake --build "$package_root/build/work/llvm-wasm" --target clangd-wasm-runtime
 
-runtime="$package_root/build/work/llvm-wasm/bin/clangd-wasm-runtime.js"
-wasm="$package_root/build/work/llvm-wasm/bin/clangd-wasm-runtime.wasm"
+runtime="$package_root/build/work/llvm-wasm/bin/clangd-runtime.js"
+wasm="$package_root/build/work/llvm-wasm/bin/clangd-runtime.wasm"
 headers="$package_root/build/work/llvm-wasm/bin/clangd-runtime.data"
 test -s "$runtime"
 test -s "$wasm"
