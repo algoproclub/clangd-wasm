@@ -45,8 +45,10 @@ for dir in "${include_dirs[@]}"; do
       ;;
   esac
 
-  mkdir -p "$stage/sysroot$(dirname "$dir")"
-  cp -aL "$dir" "$stage/sysroot$dir"
+  # Merge each discovered directory's contents into its original absolute
+  # location. Copying a parent after a child must not create include/include.
+  mkdir -p "$stage/sysroot$dir"
+  cp -aL "$dir"/. "$stage/sysroot$dir"/
 done
 
 {
