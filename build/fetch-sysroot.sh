@@ -22,7 +22,13 @@ else
   curl --fail --location --retry 3 --proto '=https' --tlsv1.2 \
     --output "$archive" "$SYSROOT_ARCHIVE_URL"
 fi
-printf '%s  %s\n' "$SYSROOT_ARCHIVE_SHA256" "$archive" | sha256sum --check --status
+actual_sha256=$(shasum -a 256 "$archive" | awk '{print $1}')
+if [[ "$actual_sha256" != "$SYSROOT_ARCHIVE_SHA256" ]]; then
+  echo "Sysroot archive SHA-256 mismatch." >&2
+  echo "Expected: $SYSROOT_ARCHIVE_SHA256" >&2
+  echo "Actual:   $actual_sha256" >&2
+  exit 1
+fi
 
 # Never replace a caller-provided directory. Every invocation receives a new,
 # private extraction directory beneath ignored build/work/.

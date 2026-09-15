@@ -62,5 +62,5 @@ done
 tar --sort=name --mtime='@0' --owner=0 --group=0 --numeric-owner \
   -C "$stage" -I 'zstd -19 -T0' -cf "$output" sysroot toolchain.txt
 
-sha256sum "$output"
+shasum -a 256 "$output"
 echo "Captured $triple GCC $gcc_version in $output"
