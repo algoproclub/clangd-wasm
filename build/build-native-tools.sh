@@ -17,13 +17,16 @@ test -f "$package_root/native/CMakeLists.txt" || {
 }
 
 build_dir="$package_root/build/work/llvm-host"
+# The index builder is a short-lived local release tool. Avoid the large
+# link-time optimization cost here; ThinLTO belongs only to the browser
+# runtime build in build-engine.sh.
 cmake -S "$LLVM_SRC/llvm" -B "$build_dir" -G Ninja \
   -DCMAKE_BUILD_TYPE=Release \
   -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra' \
   -DLLVM_EXTERNAL_PROJECTS=clangd_wasm \
   -DLLVM_EXTERNAL_CLANGD_WASM_SOURCE_DIR="$package_root/native" \
   -DLLVM_TARGETS_TO_BUILD=Native \
-  -DLLVM_ENABLE_LTO="$LLVM_ENABLE_LTO" \
+  -DLLVM_ENABLE_LTO=OFF \
   -DLLVM_ENABLE_THREADS=ON \
   -DLLVM_ENABLE_ZLIB="$LLVM_ENABLE_ZLIB" \
   -DCLANGD_DECISION_FOREST="$CLANGD_DECISION_FOREST" \
