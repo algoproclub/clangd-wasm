@@ -1,0 +1,13 @@
+diff --git a/clang-tools-extra/clangd/ClangdServer.cpp b/clang-tools-extra/clangd/ClangdServer.cpp
+index 37eb82116f3a..7dafda9419fc 100644
+--- a/clang-tools-extra/clangd/ClangdServer.cpp
++++ b/clang-tools-extra/clangd/ClangdServer.cpp
+@@ -441,7 +441,7 @@ void ClangdServer::codeComplete(PathRef File, Position Pos,
+       // No speculation in Fallback mode, as it's supposed to be much faster
+       // without compiling.
+       vlog("Build for file {0} is not ready. Enter fallback mode.", File);
+-    } else if (CodeCompleteOpts.Index) {
++    } else if (CodeCompleteOpts.Index && IndexTasks) {
+       SpecFuzzyFind.emplace();
+       {
+         std::lock_guard<std::mutex> Lock(CachedCompletionFuzzyFindRequestMutex);

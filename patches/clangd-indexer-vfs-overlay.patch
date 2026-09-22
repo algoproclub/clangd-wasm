@@ -1,0 +1,111 @@
+diff --git a/clang-tools-extra/clangd/indexer/IndexerMain.cpp b/clang-tools-extra/clangd/indexer/IndexerMain.cpp
+index 94db860f0b9b..a508ff5ad1f2 100644
+--- a/clang-tools-extra/clangd/indexer/IndexerMain.cpp
++++ b/clang-tools-extra/clangd/indexer/IndexerMain.cpp
+@@ -23,13 +23,18 @@
+ #include "clang/Tooling/Execution.h"
+ #include "clang/Tooling/Tooling.h"
+ #include "llvm/Support/CommandLine.h"
++#include "llvm/Support/MemoryBuffer.h"
+ #include "llvm/Support/Signals.h"
++#include "llvm/Support/VirtualFileSystem.h"
++#include <optional>
+ #include <utility>
+
+ namespace clang {
+ namespace clangd {
+ namespace {
+
++using llvm::StringRef;
++
+ static llvm::cl::opt<IndexFileFormat>
+     Format("format", llvm::cl::desc("Format of the index to be written"),
+            llvm::cl::values(clEnumValN(IndexFileFormat::YAML, "yaml",
+@@ -48,9 +53,19 @@ static llvm::cl::list<std::string> QueryDriverGlobs{
+     llvm::cl::CommaSeparated,
+ };
+
++static llvm::cl::opt<std::string> VFSOverlay{
++    "vfsoverlay",
++    llvm::cl::desc("Overlay the virtual filesystem described by file"),
++    llvm::cl::value_desc("filename"),
++};
++
+ class IndexActionFactory : public tooling::FrontendActionFactory {
+ public:
+-  IndexActionFactory(IndexFileIn &Result) : Result(Result) {}
++  IndexActionFactory(IndexFileIn &Result,
++                     std::optional<std::string> VFSOverlayContents,
++                     StringRef VFSOverlayPath)
++      : Result(Result), VFSOverlayContents(std::move(VFSOverlayContents)),
++        VFSOverlayPath(VFSOverlayPath) {}
+
+   std::unique_ptr<FrontendAction> create() override {
+     SymbolCollector::Options Opts;
+@@ -99,6 +114,27 @@ public:
+                      std::shared_ptr<PCHContainerOperations> PCHContainerOps,
+                      DiagnosticConsumer *DiagConsumer) override {
+     disableUnsupportedOptions(*Invocation);
++    if (VFSOverlayContents) {
++      llvm::IntrusiveRefCntPtr<llvm::vfs::FileSystem> VFSFromFile =
++          llvm::vfs::getVFSFromYAML(
++              llvm::MemoryBuffer::getMemBufferCopy(*VFSOverlayContents),
++              /*DiagHandler=*/nullptr, VFSOverlayPath,
++              /*DiagContext=*/nullptr, Files->getVirtualFileSystemPtr());
++      if (!VFSFromFile) {
++        elog("Invalid virtual filesystem overlay: {0}", VFSOverlayPath);
++        return false;
++      }
++      auto OverlayFS =
++          llvm::makeIntrusiveRefCnt<llvm::vfs::OverlayFileSystem>(
++              Files->getVirtualFileSystemPtr());
++      OverlayFS->pushOverlay(std::move(VFSFromFile));
++      auto OverlayFiles = llvm::makeIntrusiveRefCnt<FileManager>(
++          Files->getFileSystemOpts(), std::move(OverlayFS));
++      return tooling::FrontendActionFactory::runInvocation(
++          std::move(Invocation), OverlayFiles.get(),
++          std::move(PCHContainerOps),
++          DiagConsumer);
++    }
+     return tooling::FrontendActionFactory::runInvocation(
+         std::move(Invocation), Files, std::move(PCHContainerOps), DiagConsumer);
+   }
+@@ -121,6 +157,8 @@ private:
+   RefSlab::Builder Refs;
+   std::mutex RelsMu;
+   RelationSlab::Builder Relations;
++  std::optional<std::string> VFSOverlayContents;
++  std::string VFSOverlayPath;
+ };
+
+ } // namespace
+@@ -152,6 +190,18 @@ int main(int argc, const char **argv) {
+     return 1;
+   }
+
++  std::optional<std::string> VFSOverlayContents;
++  if (!clang::clangd::VFSOverlay.empty()) {
++    auto Buffer = llvm::MemoryBuffer::getFile(clang::clangd::VFSOverlay);
++    if (!Buffer) {
++      llvm::errs() << "Can't load virtual filesystem overlay file '"
++                   << clang::clangd::VFSOverlay
++                   << "': " << Buffer.getError().message() << "\n";
++      return 1;
++    }
++    VFSOverlayContents = Buffer.get()->getBuffer().str();
++  }
++
+   // Collect symbols found in each translation unit, merging as we go.
+   clang::clangd::IndexFileIn Data;
+   auto Mangler = std::make_shared<clang::clangd::CommandMangler>(
+@@ -160,7 +210,9 @@ int main(int argc, const char **argv) {
+       static_cast<llvm::ArrayRef<std::string>>(
+           clang::clangd::QueryDriverGlobs));
+   auto Err = Executor->get()->execute(
+-      std::make_unique<clang::clangd::IndexActionFactory>(Data),
++      std::make_unique<clang::clangd::IndexActionFactory>(
++          Data, std::move(VFSOverlayContents),
++          clang::clangd::VFSOverlay.getValue()),
+       clang::tooling::ArgumentsAdjuster(
+           [Mangler = std::move(Mangler)](const std::vector<std::string> &Args,
+                                          llvm::StringRef File) {

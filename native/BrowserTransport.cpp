@@ -98,26 +98,30 @@ bool dispatch(llvm::json::Value Message,
 } // namespace
 
 void BrowserTransport::notify(llvm::StringRef Method, llvm::json::Value Params) {
-  send({{"jsonrpc", "2.0"}, {"method", Method}, {"params", std::move(Params)}});
+  send(llvm::json::Object{{"jsonrpc", "2.0"},
+                          {"method", Method},
+                          {"params", std::move(Params)}});
 }
 
 void BrowserTransport::call(llvm::StringRef Method, llvm::json::Value Params,
                             llvm::json::Value ID) {
-  send({{"jsonrpc", "2.0"},
-        {"id", std::move(ID)},
-        {"method", Method},
-        {"params", std::move(Params)}});
+  send(llvm::json::Object{{"jsonrpc", "2.0"},
+                          {"id", std::move(ID)},
+                          {"method", Method},
+                          {"params", std::move(Params)}});
 }
 
 void BrowserTransport::reply(llvm::json::Value ID,
                              llvm::Expected<llvm::json::Value> Result) {
   if (Result) {
-    send({{"jsonrpc", "2.0"}, {"id", std::move(ID)},
-          {"result", std::move(*Result)}});
+    send(llvm::json::Object{{"jsonrpc", "2.0"},
+                            {"id", std::move(ID)},
+                            {"result", std::move(*Result)}});
     return;
   }
-  send({{"jsonrpc", "2.0"}, {"id", std::move(ID)},
-        {"error", encodeError(Result.takeError())}});
+  send(llvm::json::Object{{"jsonrpc", "2.0"},
+                          {"id", std::move(ID)},
+                          {"error", encodeError(Result.takeError())}});
 }
 
 void BrowserTransport::send(llvm::json::Value Message) {

@@ -4,49 +4,42 @@ set -euo pipefail
 package_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 # shellcheck disable=SC1091
 source "$package_root/build/config.env"
+# shellcheck disable=SC1091
+source "$package_root/build/llvm-patches.sh"
 if [[ -f "$package_root/build/work/dependencies.env" ]]; then
   # shellcheck disable=SC1091
   source "$package_root/build/work/dependencies.env"
 fi
 
 : "${LLVM_SRC:?Run npm run acquire:dependencies or set LLVM_SRC}"
+: "${EMSDK:?Run npm run acquire:dependencies or set EMSDK}"
 test -d "$LLVM_SRC/llvm"
-test -f "$package_root/native/CMakeLists.txt" || {
-  echo "Missing native/CMakeLists.txt (the clangd bridge and SystemIndexBuilder source)." >&2
+test -f "$EMSDK/emsdk_env.sh"
+trap 'restore_llvm_patches "$LLVM_SRC"' EXIT INT TERM
+apply_llvm_patches "$LLVM_SRC"
+# CMake may regenerate the Emscripten build tree before dispatching the native
+# sub-build, so its compiler probes still need the emsdk Python and config.
+# shellcheck disable=SC1091
+source "$EMSDK/emsdk_env.sh" >/dev/null
+build_dir="$package_root/build/work/llvm-wasm"
+test -f "$build_dir/CMakeCache.txt" || {
+  echo "The cross build is not configured. Run npm run build:engine first." >&2
   exit 1
 }
 
-build_dir="$package_root/build/work/llvm-host"
-# The index builder is a short-lived local release tool. Avoid the large
-# link-time optimization cost here; ThinLTO belongs only to the browser
-# runtime build in build-engine.sh.
-cmake -S "$LLVM_SRC/llvm" -B "$build_dir" -G Ninja \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DLLVM_ENABLE_PROJECTS='clang;clang-tools-extra' \
-  -DLLVM_EXTERNAL_PROJECTS=clangd_wasm \
-  -DLLVM_EXTERNAL_CLANGD_WASM_SOURCE_DIR="$package_root/native" \
-  -DLLVM_TARGETS_TO_BUILD=Native \
-  -DLLVM_ENABLE_LTO=OFF \
-  -DLLVM_ENABLE_THREADS=ON \
-  -DLLVM_ENABLE_ZLIB="$LLVM_ENABLE_ZLIB" \
-  -DCLANGD_DECISION_FOREST="$CLANGD_DECISION_FOREST" \
-  -DCLANG_ENABLE_CLANGD=ON \
-  -DCLANGD_TIDY_CHECKS=OFF \
-  -DCLANG_BUILD_TOOLS=OFF \
-  -DCLANG_ENABLE_STATIC_ANALYZER=OFF \
-  -DCLANG_ENABLE_ARCMT=OFF \
-  -DLLVM_BUILD_TESTS=OFF \
-  -DLLVM_INCLUDE_TESTS=OFF \
-  -DLLVM_INCLUDE_EXAMPLES=OFF \
-  -DLLVM_INCLUDE_DOCS=OFF
-
-cmake --build "$build_dir" --target llvm-tblgen clang-tblgen "$HOST_INDEX_TARGET"
-builder="$build_dir/bin/SystemIndexBuilder"
-test -x "$builder" || {
-  echo "Native target built but was not found at $builder." >&2
+cmake --build "$build_dir" --target clangd-wasm-native-indexer clang-resource-headers
+cmake --build "$build_dir/NATIVE" --target clangd-indexer clang-resource-headers
+indexer="$build_dir/NATIVE/bin/clangd-indexer"
+test -x "$indexer" || {
+  echo "Native clangd-indexer target was not found at $indexer." >&2
   exit 1
 }
 
 mkdir -p "$package_root/build/work"
-printf 'export SYSTEM_INDEX_BUILDER=%q\n' "$builder" > "$package_root/build/work/native-tools.env"
-echo "Native SystemIndexBuilder is ready at $builder"
+llvm_version=${LLVM_REVISION#llvmorg-}
+llvm_major=${llvm_version%%.*}
+resource_dir="$build_dir/NATIVE/lib/clang/$llvm_major"
+test -d "$resource_dir/include"
+printf 'export CLANGD_INDEXER=%q\nexport CLANG_RESOURCE_DIR=%q\n' \
+  "$indexer" "$resource_dir" > "$package_root/build/work/native-tools.env"
+echo "Native clangd-indexer is ready at $indexer"

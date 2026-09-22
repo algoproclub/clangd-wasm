@@ -7,6 +7,7 @@
 #include "ClangdLSPServer.h"
 #include "ClangdServer.h"
 #include "CodeComplete.h"
+#include "clang/Basic/Version.h"
 #include "index/Serialization.h"
 #include "support/ThreadsafeFS.h"
 #include "llvm/Support/Error.h"
@@ -38,6 +39,10 @@ clang::clangd::ClangdLSPServer::Options makeOptions(
   Options.UseDirBasedCDB = false;
   Options.UseDirtyHeaders = false;
   Options.StorePreamblesInMemory = true;
+  // Keep one idle AST globally. The broker already gives each editor a
+  // separate native filename, while the system index and sysroot stay shared.
+  Options.RetentionPolicy.MaxRetainedASTs = 1;
+  Options.ResourceDir = "/lib/clang/" CLANG_VERSION_MAJOR_STRING;
   Options.StaticIndex = SystemIndex;
   Options.CodeComplete.ForceLoadPreamble = true;
   Options.CodeComplete.InsertIncludes =

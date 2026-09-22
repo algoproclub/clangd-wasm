@@ -40,9 +40,8 @@
     "build:engine": "bash ./build/build-engine.sh",
     "build:index": "bash ./build/build-system-index.sh",
     "capture:sysroot": "bash ./build/capture-sysroot.sh",
-    "build:artifacts": "npm run build:engine && npm run build:index && npm run verify:assets",
-    "verify:assets": "node ./build/verify-assets.mjs",
-    "pack:check": "npm run build && npm run verify:assets && npm pack --dry-run"
+    "build:artifacts": "npm run build:engine && npm run build:index",
+    "pack:check": "npm test && npm run verify:assets && npm pack --dry-run --ignore-scripts"
   },
   "engines": {
     "node": ">=22"

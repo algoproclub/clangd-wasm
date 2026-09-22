@@ -15,7 +15,6 @@ fi
 
 : "${LLVM_SRC:?Run npm run acquire:dependencies or set LLVM_SRC}"
 : "${SYSROOT_DIR:?Set SYSROOT_DIR to the captured production AArch64 sysroot}"
-: "${GCC_VERSION:?Set GCC_VERSION from the captured execution image}"
 
 test -d "$LLVM_SRC/llvm"
 test -d "$SYSROOT_DIR"
@@ -23,39 +22,39 @@ test -d "$SYSROOT_DIR"
 if [[ -f "$package_root/build/work/native-tools.env" ]]; then
   # shellcheck disable=SC1091
   source "$package_root/build/work/native-tools.env"
-else
+fi
+if [[ ! -x "${CLANGD_INDEXER:-}" ]]; then
   "$package_root/build/build-native-tools.sh"
   # shellcheck disable=SC1091
   source "$package_root/build/work/native-tools.env"
 fi
 
-: "${SYSTEM_INDEX_BUILDER:?native tool build did not provide SystemIndexBuilder}"
-test -x "$SYSTEM_INDEX_BUILDER"
+: "${CLANGD_INDEXER:?native tool build did not provide clangd-indexer}"
+: "${CLANG_RESOURCE_DIR:?native tool build did not provide Clang resource headers}"
+test -x "$CLANGD_INDEXER"
 
 mkdir -p "$package_root/assets"
-builder_args=(
-  --target="$TARGET_TRIPLE" \
-  --sysroot="$SYSROOT_DIR" \
-  --gcc-version="$GCC_VERSION" \
-  --output="$package_root/assets/system.index" \
-  --public-header-allowlist="$package_root/build/public-headers.txt"
-)
-
-toolchain_file="$(dirname "$SYSROOT_DIR")/toolchain.txt"
-test -f "$toolchain_file" || {
-  echo "Captured sysroot is missing toolchain.txt." >&2
+TARGET_TRIPLE="$TARGET_TRIPLE" SYSROOT_DIR="$SYSROOT_DIR" \
+  CLANG_RESOURCE_DIR="$CLANG_RESOURCE_DIR" \
+  node "$package_root/build/prepare-index-input.mjs"
+input_dir="$package_root/build/work/system-index-input"
+index_tmp="$package_root/assets/system.index.tmp"
+index_log="$package_root/build/work/system-index.log"
+trap 'rm -f "$index_tmp"' EXIT
+"$CLANGD_INDEXER" --executor=all-TUs \
+  --vfsoverlay="$input_dir/vfs-overlay.yaml" \
+  "$input_dir/compile_commands.json" \
+  > "$index_tmp" 2> "$index_log"
+cat "$index_log"
+if grep -Eq ': (fatal )?error:' "$index_log"; then
+  echo "clangd-indexer reported compiler errors." >&2
   exit 1
-}
-while IFS= read -r include_dir; do
-  builder_args+=(--include-dir="$include_dir")
-done < <(awk '/^includeDirectories=/{capture=1; next} /^compilerVersionOutput=/{capture=0} capture' "$toolchain_file")
-
-if [[ -n "${CLANG_RESOURCE_DIR:-}" ]]; then
-  builder_args+=(--resource-dir="$CLANG_RESOURCE_DIR")
 fi
+test "$(wc -c < "$index_tmp")" -gt 1024
+test "$(LC_ALL=C head -c 4 "$index_tmp")" = RIFF
+mv "$index_tmp" "$package_root/assets/system.index"
+trap - EXIT
+TARGET_TRIPLE="$TARGET_TRIPLE" SYSROOT_DIR="$SYSROOT_DIR" \
+  node "$package_root/build/write-compile-config.mjs"
 
-"$SYSTEM_INDEX_BUILDER" "${builder_args[@]}"
-test -s "$package_root/assets/system.index"
-node "$package_root/build/write-manifest.mjs"
-
-echo "System index and manifest written to assets/."
+echo "System index and compiler configuration written to assets/."

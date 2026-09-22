@@ -4,6 +4,8 @@ set -euo pipefail
 package_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 # shellcheck disable=SC1091
 source "$package_root/build/config.env"
+# shellcheck disable=SC1091
+source "$package_root/build/llvm-patches.sh"
 
 dependencies_dir=${BUILD_DEPENDENCIES_DIR:-"$package_root/build/deps"}
 llvm_source=${LLVM_SRC:-"$dependencies_dir/llvm-project"}
@@ -34,6 +36,9 @@ checkout_revision() {
 }
 
 mkdir -p "$dependencies_dir" "$package_root/build/work"
+if [[ -d "$llvm_source/.git" ]]; then
+  restore_llvm_patches "$llvm_source"
+fi
 checkout_revision "$llvm_source" "$LLVM_REPOSITORY" "$LLVM_REVISION"
 checkout_revision "$emsdk_root" "$EMSDK_REPOSITORY" "$EMSDK_VERSION"
 
