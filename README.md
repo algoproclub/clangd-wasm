@@ -26,82 +26,79 @@ yarn add @algoproclub/clangd-wasm@1.0.0
 The browser-facing entry point opens one session on the package worker:
 
 ```ts
-import { openClangdSession } from "@algoproclub/clangd-wasm/browser";
+import { openClangdSession } from "@algoproclub/clangd-wasm";
 
 const session = await openClangdSession({
   uri: "file:///lsp/example/main.cpp",
-  compilerOptions: "-std=c++20",
+  compilerArguments: `-std=c++23 -DNAME="Ada Lovelace" -Wall`,
 });
 ```
 
 `session.port` is a JSON-RPC `MessagePort`; `session.dispose()` only detaches
 that document. The package resolves generated WASM/data/index URLs through its
-bundler-aware worker modules.
+bundler-aware worker modules. The runtime requires `SharedWorker` and WebAssembly
+JSPI; `openClangdSession()` rejects before starting a worker when either is
+unavailable. Applications can check the same requirement without loading the
+worker or its assets:
+
+```ts
+import { isClangdWasmSupported } from "@algoproclub/clangd-wasm/support";
+```
+
+The helper validates the JSPI API plus a tiny Wasm module containing
+`memory.copy` and `return_call`. Its readable source is
+`build/required-wasm-features.wat`; maintainers regenerate the checked-in byte
+array with `npm run generate:support-probe` (requires WABT's `wat2wasm`).
+
+Each session may append workspace compiler arguments to the package's default
+target, sysroot, include paths, and C++20 mode. This supports language-standard,
+warning, macro, and include settings while clangd still disables compiler
+operations that are unsuitable for language-server parsing.
+`compilerArguments` accepts either a shell-like string or an already-tokenized
+string array. String parsing handles quotes and backslash escapes without shell
+expansion.
 
 ## Release inputs
 
 `build/config.env` pins LLVM 23.1.1, Emscripten 6.0.9, AArch64 Linux and
-ThinLTO. The local release process captures the exact GCC/libstdc++/glibc header tree and
-include-search order from the execution image, then records GCC version and
-source digest in `assets/manifest.json`.
+ThinLTO. The WASM build enables JSPI and tail calls. The local release process
+captures the exact GCC/libstdc++/glibc header tree and include-search order from
+the execution image.
 
 Use the same canonical `/sysroot` paths during native index generation and in
 the browser. Capture internal headers needed for parsing, but use
 `build/public-headers.txt` to limit completion suggestions to public header
 spellings.
 
-The native `SystemIndexBuilder` uses clangd's upstream standard-library indexing
-APIs and emits `system.index`. It must syntax-check its umbrella input, reject
-diagnostics, and verify representative include edits before writing the
-manifest. It must never index student documents.
+The native upstream `clangd-indexer` indexes one generated translation unit
+containing the public-header allowlist and emits `system.index`. Its compile
+database uses a VFS overlay so declaration paths are recorded under the same
+`/sysroot` mount used in the browser. It never indexes student documents.
 
-## Build stages
+## Local release process
 
-1. On the production execution host, run `npm run capture:sysroot -- <out>` to
-   capture the actual AArch64 GNU include search paths into a deterministic
-   `.tar.zst` archive. Store its SHA-256 and exact GCC version with the archive.
-2. On the release machine, run `npm run acquire:dependencies`, then set
-   `SYSROOT_ARCHIVE_URL`, `SYSROOT_ARCHIVE_SHA256` and `GCC_VERSION` and run
-   `npm run fetch:sysroot`. The latter verifies the archive before extracting
-   to a fresh ignored build directory.
-3. Run `npm run build:engine` to configure the WASM engine. Its C++ entry owns
-   clangd's `Transport`, mounts `headers.data`, loads `system.index`, and uses
-   synchronous clangd: `AsyncThreadsCount=0`, no dynamic/background student
-   index, `ForceLoadPreamble`, IWYU include insertion and decision-forest ranking.
-4. Build `system.index`, generate `assets/manifest.json`, then run
-   `npm run pack:check`.
-5. Install the generated tarball into a clean consumer and run browser checks
-   before publishing that same tarball locally.
+1. On the production execution host, run `npm run capture:sysroot -- <out>`.
+   Keep the emitted archive, SHA-256, and GCC version.
+2. On the release machine, run `npm run acquire:dependencies`, set
+   `SYSROOT_ARCHIVE_URL`, `SYSROOT_ARCHIVE_SHA256`, and `GCC_VERSION`, then run
+   `npm run fetch:sysroot`.
+3. Run `npm run build:artifacts`. It builds the WASM engine, the native index
+   helper, `system.index`, and the compiler include-path configuration.
+4. Run `npm run pack:check`, then `npm pack`. Install that tarball in the IDE
+   and run browser checks before publishing the same tarball.
+
+The engine owns clangd's transport, mounts `headers.data`, loads
+`system.index`, and runs synchronously: `AsyncThreadsCount=0`, no
+dynamic/background student index, `ForceLoadPreamble`, IWYU include insertion,
+and decision-forest ranking. Its growable WebAssembly heap starts at 128 MiB;
+the worker logs each observed growth so browser memory pressure is visible.
 
 LLVM thread support stays on because clangd's CMake target requires it. The
-browser build itself uses no Emscripten pthreads. Carry only the submitted
-upstream fix that prevents speculative completion from creating a thread when
+browser build itself uses no Emscripten pthreads. The build applies the small
+upstream-oriented patch in
+`patches/clangd-disable-speculative-completion-without-workers.patch`, which
+prevents speculative completion from creating a thread when
 `AsyncThreadsCount` is zero.
-
-## Required generated manifest
-
-```json
-{
-  "packageVersion": "0.1.0",
-  "llvmRevision": "llvmorg-23.1.1",
-  "emscriptenVersion": "6.0.9",
-  "targetTriple": "aarch64-linux-gnu",
-  "gccVersion": "<captured version>",
-  "sysrootDigest": "<sha256>",
-  "indexDigest": "<sha256>",
-  "thinLto": true,
-  "decisionForest": true,
-  "files": {
-    "clangd-runtime.mjs": { "sha256": "<sha256>", "bytes": 1 },
-    "clangd.wasm": { "sha256": "<sha256>", "bytes": 1 },
-    "headers.data": { "sha256": "<sha256>", "bytes": 1 },
-    "system.index": { "sha256": "<sha256>", "bytes": 1 }
-  }
-}
-```
-
-The manifest is artifact provenance and integrity data, not a runtime upgrade or
-compatibility protocol. Students can reload if a deployment changes worker assets.
 
 ## Publishing
 
