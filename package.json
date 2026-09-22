@@ -5,16 +5,16 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./lib/index.d.ts",
-      "import": "./lib/index.js"
+      "types": "./lib/browser.d.ts",
+      "import": "./lib/browser.js"
     },
     "./browser": {
       "types": "./lib/browser.d.ts",
       "import": "./lib/browser.js"
     },
-    "./node": {
-      "types": "./lib/index.d.ts",
-      "import": "./lib/index.js"
+    "./support": {
+      "types": "./lib/support.d.ts",
+      "import": "./lib/support.js"
     }
   },
   "repository": {
@@ -46,6 +46,9 @@
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "vscode-jsonrpc": "8.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
