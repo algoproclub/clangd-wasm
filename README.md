@@ -2,8 +2,8 @@
 
 This package publishes a finished browser clangd runtime: Emscripten glue and
 WASM, a preloaded AArch64 GNU C++ sysroot, and a prebuilt system-only clangd
-index. Application developers install the package from GitHub Packages; local
-release builds use LLVM, Emscripten and the execution-image sysroot.
+index. Application developers install the package from the public npm registry;
+local release builds use LLVM, Emscripten and the execution-image sysroot.
 
 The package contains the SharedWorker and its document-session broker. Consumers
 only open a session; they never copy artifacts into a public directory or know
@@ -11,16 +11,10 @@ their filenames.
 
 ## Consumer integration
 
-Configure the GitHub Packages scope once:
-
-```ini
-@algoproclub:registry=https://npm.pkg.github.com
-```
-
-Then install a released version:
+Install a released version from npm:
 
 ```sh
-yarn add @algoproclub/clangd-wasm@1.0.0
+yarn add @algoproclub/clangd-wasm
 ```
 
 The browser-facing entry point opens one session on the package worker:
@@ -102,9 +96,12 @@ prevents speculative completion from creating a thread when
 
 ## Publishing
 
-Build and validate the tarball locally, then publish that exact file with:
+The package is published publicly to npmjs.com under the `@algoproclub`
+organization. Build and validate the tarball locally, log in with an account
+that can publish to the organization, then publish that exact file:
 
 ```sh
+npm login
 npm publish ./algoproclub-clangd-wasm-<version>.tgz
 ```
 

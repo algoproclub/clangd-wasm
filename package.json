@@ -21,9 +21,13 @@
     "type": "git",
     "url": "git+https://github.com/algoproclub/clangd-wasm.git"
   },
+  "homepage": "https://github.com/algoproclub/clangd-wasm#readme",
+  "bugs": {
+    "url": "https://github.com/algoproclub/clangd-wasm/issues"
+  },
   "publishConfig": {
-    "access": "restricted",
-    "registry": "https://npm.pkg.github.com"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "files": [
     "lib",
